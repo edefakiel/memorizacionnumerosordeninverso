@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Memorización de Números en Orden Inverso</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4caf50;
+            border-radius: 10px;
+            transition: width 0.3s ease-in-out;
+        }
+        .lives {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .instruction {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const MemoryTest = () => {
+            const [level, setLevel] = React.useState(1);
+            const [currentNumber, setCurrentNumber] = React.useState('');
+            const [userInput, setUserInput] = React.useState('');
+            const [score, setScore] = React.useState(0);
+            const [gameState, setGameState] = React.useState('login');
+            const [percentile, setPercentile] = React.useState(null);
+            const [timeLeft, setTimeLeft] = React.useState(10);
+            const [username, setUsername] = React.useState('');
+            const [lives, setLives] = React.useState(3);
+
+            const inputRef = React.useRef(null);
+            const timerRef = React.useRef(null);
+
+            const generateNumber = (length) => {
+                let result = '';
+                const crypto = window.crypto || window.msCrypto;
+                
+                const getRandomByte = () => {
+                    const randomBuffer = new Uint8Array(1);
+                    crypto.getRandomValues(randomBuffer);
+                    return randomBuffer[0];
+                };
+
+                for (let i = 0; i < length; i++) {
+                    if (i === 0) {
+                        result += (getRandomByte() % 9 + 1).toString();
+                    } else {
+                        result += (getRandomByte() % 10).toString();
+                    }
+                }
+
+                return result;
+            };
+
+            const speakNumber = (number) => {
+                const utterance = new SpeechSynthesisUtterance(number.split('').join(' '));
+                utterance.lang = 'es-ES';
+                window.speechSynthesis.speak(utterance);
+                utterance.onend = () => {
+                    setGameState('input');
+                    inputRef.current.focus();
+                    startTimer();
+                };
+            };
+
+            const startTimer = () => {
+                setTimeLeft(10);
+                timerRef.current = setInterval(() => {
+                    setTimeLeft((prevTime) => {
+                        if (prevTime <= 1) {
+                            clearInterval(timerRef.current);
+                            checkAnswer();
+                            return 0;
+                        }
+                        return prevTime - 1;
+                    });
+                }, 1000);
+            };
+
+            const startLevel = () => {
+                const newNumber = generateNumber(level);
+                setCurrentNumber(newNumber);
+                setGameState('listening');
+                speakNumber(newNumber);
+            };
+
+            const checkAnswer = () => {
+                clearInterval(timerRef.current);
+                const reversedCurrentNumber = currentNumber.split('').reverse().join('');
+                if (userInput === reversedCurrentNumber) {
+                    setScore(score + 1);
+                    if (level < 16) {
+                        setLevel(level + 1);
+                    }
+                } else {
+                    setLives(lives - 1);
+                    if (lives <= 1) {
+                        endGame();
+                    }
+                }
+                setUserInput('');
+                if (lives > 1 || userInput === reversedCurrentNumber) {
+                    setGameState('ready');
+                }
+            };
+
+            const endGame = () => {
+                setGameState('result');
+                const simulatedPercentile = Math.floor(Math.random() * 100);
+                setPercentile(simulatedPercentile);
+            };
+
+            const handleLogin = () => {
+                if (username.trim() !== '') {
+                    setGameState('ready');
+                }
+            };
+
+            const handleKeyPress = (event) => {
+                if (event.key === 'Enter') {
+                    checkAnswer();
+                }
+            };
+
+            React.useEffect(() => {
+                if (gameState === 'ready' && level <= 16) {
+                    startLevel();
+                }
+            }, [gameState, level]);
+
+            if (gameState === 'login') {
+                return (
+                    <div className="container">
+                        <h1>Iniciar Sesión</h1>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Nombre de usuario"
+                            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                        />
+                        <button onClick={handleLogin}>Iniciar Sesión</button>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container">
+                    <h1>Test de Memorización de Números en Orden Inverso</h1>
+                    <div className="lives">
+                        Vidas: {'❤️'.repeat(lives)}{'🖤'.repeat(3 - lives)}
+                    </div>
+                    <div>
+                        <p>Nivel: {level}</p>
+                        <p>Puntuación: {score}</p>
+                        {gameState === 'input' && <p>Tiempo restante: {timeLeft}s</p>}
+                    </div>
+                    {gameState === 'listening' && (
+                        <p>Escuchando el número...</p>
+                    )}
+                    {gameState === 'input' && (
+                        <div>
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={userInput}
+                                onChange={(e) => setUserInput(e.target.value)}
+                                onKeyPress={handleKeyPress}
+                                placeholder="Introduce el número en orden inverso"
+                            />
+                            <p className="instruction">Introduce los números en orden inverso. Presiona Enter o haz clic en Comprobar para enviar tu respuesta.</p>
+                            <button onClick={checkAnswer}>Comprobar</button>
+                        </div>
+                    )}
+                    {gameState === 'result' && (
+                        <div>
+                            <p>Juego terminado. Tu puntuación final es: {score}</p>
+                            <p>Estás en el percentil {percentile}%</p>
+                            <button onClick={() => window.location.reload()}>Jugar de nuevo</button>
+                        </div>
+                    )}
+                    <div className="progress-bar">
+                        <div className="progress" style={{width: `${(level / 16) * 100}%`}}></div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<MemoryTest />, document.getElementById('root'));
+    </script>
+</body>
+</html>
